@@ -82,6 +82,25 @@ def get_topic_by_user(user_telegram_id: int):
         return row[0] if row else None
 
 
+def get_user_data(telegram_id: int):
+    with sqlite3.connect(DB_PATH) as conn:
+        row = conn.execute(
+            "SELECT first_name, last_name, username, region, district, school_number, subscription_type FROM users WHERE telegram_id = ?",
+            (telegram_id,),
+        ).fetchone()
+        if row:
+            return {
+                "first_name": row[0] or "",
+                "last_name": row[1] or "",
+                "username": row[2] or "",
+                "region": row[3] or "",
+                "district": row[4] or "",
+                "school_number": row[5] or "",
+                "subscription_type": row[6] or "",
+            }
+        return None
+
+
 def get_user_by_topic(topic_id: int):
     with sqlite3.connect(DB_PATH) as conn:
         row = conn.execute(

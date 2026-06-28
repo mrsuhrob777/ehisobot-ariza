@@ -2,7 +2,7 @@ from aiogram import Router, types
 from aiogram.fsm.context import FSMContext
 
 from config import ADMIN_ID, GROUP_ID
-from db import is_user_registered, get_topic_by_user, get_user_by_topic
+from db import is_user_registered, get_topic_by_user, get_user_by_topic, get_user_data, save_topic
 
 router = Router()
 
@@ -31,6 +31,31 @@ async def user_to_admin(message: types.Message, state: FSMContext):
                 return
             except Exception:
                 pass
+
+        user_data = get_user_data(message.from_user.id)
+        if user_data:
+            topic_name = (
+                f"{user_data['first_name']} {user_data['last_name']} | "
+                f"{user_data['region']} {user_data['district']} {user_data['school_number']}"
+            )
+        else:
+            topic_name = message.from_user.first_name or "Foydalanuvchi"
+
+        try:
+            topic = await message.bot.create_forum_topic(
+                chat_id=GROUP_ID,
+                name=topic_name[:128],
+            )
+            save_topic(message.from_user.id, topic.message_thread_id)
+
+            await message.bot.send_message(
+                chat_id=GROUP_ID,
+                message_thread_id=topic.message_thread_id,
+                text=message.text,
+            )
+            return
+        except Exception:
+            pass
 
     await message.bot.send_message(
         chat_id=ADMIN_ID,
