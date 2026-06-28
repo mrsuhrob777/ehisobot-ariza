@@ -2,7 +2,7 @@ from aiogram import Router, types
 from aiogram.fsm.context import FSMContext
 
 from config import ADMIN_ID, GROUP_ID
-from db import is_user_registered, get_topic_by_user, get_user_by_topic, get_user_data, save_topic
+from db import is_user_registered, get_topic_by_user, get_user_by_topic, get_user_data, save_topic, delete_topic_by_user
 
 router = Router()
 
@@ -30,7 +30,7 @@ async def user_to_admin(message: types.Message, state: FSMContext):
                 )
                 return
             except Exception:
-                pass
+                delete_topic_by_user(message.from_user.id)
 
         user_data = get_user_data(message.from_user.id)
         if user_data:

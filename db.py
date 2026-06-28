@@ -108,3 +108,11 @@ def get_user_by_topic(topic_id: int):
             (topic_id,),
         ).fetchone()
         return row[0] if row else None
+
+
+def delete_topic_by_user(user_telegram_id: int):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            "DELETE FROM topics WHERE user_telegram_id = ?",
+            (user_telegram_id,),
+        )
