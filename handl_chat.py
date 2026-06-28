@@ -73,11 +73,18 @@ async def user_to_admin(message: types.Message, state: FSMContext):
             except Exception as e:
                 logger.error(f"create_forum_topic failed: {e}")
 
-    logger.info(f"fallback to ADMIN_ID for user {user_id}")
-    await message.bot.send_message(
-        chat_id=ADMIN_ID,
-        text=message.text,
-    )
+    logger.info(f"fallback to group general for user {user_id}")
+    try:
+        await message.bot.send_message(
+            chat_id=GROUP_ID,
+            text=f"💬 {message.from_user.first_name}: {message.text}",
+        )
+        await message.answer(
+            "Xabar guruhning umumiy chatiga yuborildi. "
+            "Admin tez orada siz bilan bog'lanadi."
+        )
+    except Exception as e:
+        logger.error(f"fallback to group failed: {e}")
 
 
 @router.message(lambda msg: (
