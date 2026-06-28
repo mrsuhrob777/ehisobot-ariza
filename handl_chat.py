@@ -21,6 +21,38 @@ async def user_to_admin(message: types.Message, state: FSMContext):
 
     if GROUP_ID:
         topic_id = get_topic_by_user(message.from_user.id)
+
+        if topic_id:
+            try:
+                await message.bot.send_chat_action(
+                    chat_id=GROUP_ID,
+                    message_thread_id=topic_id,
+                    action="typing",
+                )
+            except Exception:
+                topic_id = None
+
+        if not topic_id:
+            delete_topic_by_user(message.from_user.id)
+            user_data = get_user_data(message.from_user.id)
+            if user_data:
+                topic_name = (
+                    f"{user_data['first_name']} {user_data['last_name']} | "
+                    f"{user_data['region']} {user_data['district']} {user_data['school_number']}"
+                )
+            else:
+                topic_name = message.from_user.first_name or "Foydalanuvchi"
+
+            try:
+                topic = await message.bot.create_forum_topic(
+                    chat_id=GROUP_ID,
+                    name=topic_name[:128],
+                )
+                save_topic(message.from_user.id, topic.message_thread_id)
+                topic_id = topic.message_thread_id
+            except Exception:
+                pass
+
         if topic_id:
             try:
                 await message.bot.send_message(
@@ -30,32 +62,7 @@ async def user_to_admin(message: types.Message, state: FSMContext):
                 )
                 return
             except Exception:
-                delete_topic_by_user(message.from_user.id)
-
-        user_data = get_user_data(message.from_user.id)
-        if user_data:
-            topic_name = (
-                f"{user_data['first_name']} {user_data['last_name']} | "
-                f"{user_data['region']} {user_data['district']} {user_data['school_number']}"
-            )
-        else:
-            topic_name = message.from_user.first_name or "Foydalanuvchi"
-
-        try:
-            topic = await message.bot.create_forum_topic(
-                chat_id=GROUP_ID,
-                name=topic_name[:128],
-            )
-            save_topic(message.from_user.id, topic.message_thread_id)
-
-            await message.bot.send_message(
-                chat_id=GROUP_ID,
-                message_thread_id=topic.message_thread_id,
-                text=message.text,
-            )
-            return
-        except Exception:
-            pass
+                pass
 
     await message.bot.send_message(
         chat_id=ADMIN_ID,
