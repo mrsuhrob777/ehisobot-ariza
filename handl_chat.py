@@ -1,8 +1,12 @@
+import logging
+
 from aiogram import Router, types
 from aiogram.fsm.context import FSMContext
 
 from config import ADMIN_ID, GROUP_ID
 from db import is_user_registered, get_topic_by_user, get_user_by_topic, get_user_data, save_topic, delete_topic_by_user
+
+logger = logging.getLogger(__name__)
 
 router = Router()
 
@@ -24,16 +28,17 @@ async def user_to_admin(message: types.Message, state: FSMContext):
 
         if topic_id:
             try:
-                await message.bot.send_chat_action(
+                await message.bot.send_message(
                     chat_id=GROUP_ID,
                     message_thread_id=topic_id,
-                    action="typing",
+                    text=message.text,
                 )
+                return
             except Exception:
+                delete_topic_by_user(message.from_user.id)
                 topic_id = None
 
         if not topic_id:
-            delete_topic_by_user(message.from_user.id)
             user_data = get_user_data(message.from_user.id)
             if user_data:
                 topic_name = (
@@ -50,8 +55,8 @@ async def user_to_admin(message: types.Message, state: FSMContext):
                 )
                 save_topic(message.from_user.id, topic.message_thread_id)
                 topic_id = topic.message_thread_id
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"create_forum_topic error: {e}")
 
         if topic_id:
             try:
@@ -61,8 +66,8 @@ async def user_to_admin(message: types.Message, state: FSMContext):
                     text=message.text,
                 )
                 return
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"send_message to topic error: {e}")
 
     await message.bot.send_message(
         chat_id=ADMIN_ID,
