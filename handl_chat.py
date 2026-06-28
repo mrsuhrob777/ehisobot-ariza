@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from aiogram import Router, types
@@ -9,6 +10,27 @@ from db import is_user_registered, get_topic_by_user, get_user_by_topic, get_use
 logger = logging.getLogger(__name__)
 
 router = Router()
+
+
+async def create_topic_retry(bot, user_id: int, text: str, first_name: str, topic_name: str, retries: int = 6):
+    for i in range(retries):
+        await asyncio.sleep(10)
+        try:
+            topic = await bot.create_forum_topic(
+                chat_id=GROUP_ID,
+                name=topic_name[:128],
+            )
+            save_topic(user_id, topic.message_thread_id)
+            await bot.send_message(
+                chat_id=GROUP_ID,
+                message_thread_id=topic.message_thread_id,
+                text=text,
+            )
+            logger.info(f"retry success: created topic {topic.message_thread_id} for user {user_id}")
+            return
+        except Exception as e:
+            logger.info(f"retry {i+1}/{retries} failed for user {user_id}: {e}")
+    logger.error(f"all retries failed for user {user_id}")
 
 
 @router.message(lambda msg: (
@@ -71,7 +93,11 @@ async def user_to_admin(message: types.Message, state: FSMContext):
                 logger.info("sent to new topic")
                 return
             except Exception as e:
-                logger.error(f"create_forum_topic failed: {e}")
+                logger.error(f"create_forum_topic failed, scheduling retry: {e}")
+                asyncio.create_task(create_topic_retry(
+                    message.bot, user_id, message.text,
+                    message.from_user.first_name, topic_name
+                ))
 
     logger.info(f"fallback to group general for user {user_id}")
     try:
@@ -79,31 +105,5 @@ async def user_to_admin(message: types.Message, state: FSMContext):
             chat_id=GROUP_ID,
             text=f"💬 {message.from_user.first_name}: {message.text}",
         )
-        await message.answer(
-            "Xabar guruhning umumiy chatiga yuborildi. "
-            "Admin tez orada siz bilan bog'lanadi."
-        )
     except Exception as e:
         logger.error(f"fallback to group failed: {e}")
-
-
-@router.message(lambda msg: (
-    msg.chat.id == GROUP_ID
-    and msg.message_thread_id
-    and msg.from_user
-    and msg.from_user.id == ADMIN_ID
-    and msg.text
-))
-async def admin_to_user(message: types.Message):
-    user_id = get_user_by_topic(message.message_thread_id)
-    if not user_id:
-        await message.reply("Bu topic ga bog'langan foydalanuvchi topilmadi.")
-        return
-
-    try:
-        await message.bot.send_message(
-            chat_id=user_id,
-            text=message.text,
-        )
-    except Exception as e:
-        await message.reply(f"Xatolik: {e}")
