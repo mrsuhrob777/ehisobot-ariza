@@ -16,7 +16,7 @@ from handl_register import router as register_router
 from handl_chat import router as chat_router
 from handl_group import router as group_router
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 async def main():

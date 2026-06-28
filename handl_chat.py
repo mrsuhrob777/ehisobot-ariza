@@ -23,8 +23,12 @@ async def user_to_admin(message: types.Message, state: FSMContext):
     if current is not None:
         return
 
+    user_id = message.from_user.id
+    logger.info(f"user_to_admin: user={user_id}, text={message.text}")
+
     if GROUP_ID:
-        topic_id = get_topic_by_user(message.from_user.id)
+        topic_id = get_topic_by_user(user_id)
+        logger.info(f"topic_id from DB: {topic_id}")
 
         if topic_id:
             try:
@@ -33,13 +37,15 @@ async def user_to_admin(message: types.Message, state: FSMContext):
                     message_thread_id=topic_id,
                     text=message.text,
                 )
+                logger.info(f"sent to existing topic {topic_id}")
                 return
-            except Exception:
-                delete_topic_by_user(message.from_user.id)
+            except Exception as e:
+                logger.error(f"send to topic {topic_id} failed: {e}")
+                delete_topic_by_user(user_id)
                 topic_id = None
 
         if not topic_id:
-            user_data = get_user_data(message.from_user.id)
+            user_data = get_user_data(user_id)
             if user_data:
                 topic_name = (
                     f"{user_data['first_name']} {user_data['last_name']} | "
@@ -48,27 +54,26 @@ async def user_to_admin(message: types.Message, state: FSMContext):
             else:
                 topic_name = message.from_user.first_name or "Foydalanuvchi"
 
+            logger.info(f"creating new topic: {topic_name}")
             try:
                 topic = await message.bot.create_forum_topic(
                     chat_id=GROUP_ID,
                     name=topic_name[:128],
                 )
-                save_topic(message.from_user.id, topic.message_thread_id)
-                topic_id = topic.message_thread_id
-            except Exception as e:
-                logger.error(f"create_forum_topic error: {e}")
+                save_topic(user_id, topic.message_thread_id)
+                logger.info(f"created new topic {topic.message_thread_id}")
 
-        if topic_id:
-            try:
                 await message.bot.send_message(
                     chat_id=GROUP_ID,
-                    message_thread_id=topic_id,
+                    message_thread_id=topic.message_thread_id,
                     text=message.text,
                 )
+                logger.info("sent to new topic")
                 return
             except Exception as e:
-                logger.error(f"send_message to topic error: {e}")
+                logger.error(f"create_forum_topic failed: {e}")
 
+    logger.info(f"fallback to ADMIN_ID for user {user_id}")
     await message.bot.send_message(
         chat_id=ADMIN_ID,
         text=message.text,
